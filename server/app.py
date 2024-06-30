@@ -3,7 +3,7 @@
 #!/usr/bin/env python3
 from models import db, Restaurant, RestaurantPizza, Pizza
 from flask_migrate import Migrate
-from flask import Flask, request, make_response, jsonify
+from flask import Flask, request, jsonify
 from flask_restful import Api, Resource
 import os
 

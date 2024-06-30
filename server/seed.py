@@ -1,70 +1,43 @@
-# server/models.py
+# server/seed.py
 
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import MetaData
-from sqlalchemy.orm import validates
-from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy_serializer import SerializerMixin
+#!/usr/bin/env python3
 
-metadata = MetaData(
-    naming_convention={
-        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    }
-)
+from app import app
+from models import db, Restaurant, Pizza, RestaurantPizza
 
-db = SQLAlchemy(metadata=metadata)
+with app.app_context():
 
+    # This will delete any existing rows
+    # so you can run the seed file multiple times without having duplicate entries in your database
+    print("Deleting data...")
+    RestaurantPizza.query.delete()
+    Pizza.query.delete()
+    Restaurant.query.delete()
 
-class Restaurant(db.Model, SerializerMixin):
-    __tablename__ = "restaurants"
+    print("Creating restaurants...")
+    shack = Restaurant(name="Karen's Pizza Shack", address='address1')
+    bistro = Restaurant(name="Sanjay's Pizza", address='address2')
+    palace = Restaurant(name="Kiki's Pizza", address='address3')
+    restaurants = [shack, bistro, palace]
 
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    address = db.Column(db.String, nullable=False)
+    print("Creating pizzas...")
 
-    restaurant_pizzas = db.relationship('RestaurantPizza', backref='restaurant_instance', cascade='all, delete-orphan')
-    pizzas = association_proxy('restaurant_pizzas', 'pizza', creator=lambda p: RestaurantPizza(pizza=p))
+    cheese = Pizza(name="Emma", ingredients="Dough, Tomato Sauce, Cheese")
+    pepperoni = Pizza(
+        name="Geri", ingredients="Dough, Tomato Sauce, Cheese, Pepperoni")
+    california = Pizza(
+        name="Melanie", ingredients="Dough, Sauce, Ricotta, Red peppers, Mustard")
+    pizzas = [cheese, pepperoni, california]
 
-    serialize_rules = ('-restaurant_pizzas.restaurant_instance', '-pizzas.restaurants')
+    print("Creating RestaurantPizza...")
 
-    def __repr__(self):
-        return f"<Restaurant {self.name}>"
+    pr1 = RestaurantPizza(restaurant=shack, pizza=cheese, price=1)
+    pr2 = RestaurantPizza(restaurant=bistro, pizza=pepperoni, price=4)
+    pr3 = RestaurantPizza(restaurant=palace, pizza=california, price=5)
+    restaurantPizzas = [pr1, pr2, pr3]
+    db.session.add_all(restaurants)
+    db.session.add_all(pizzas)
+    db.session.add_all(restaurantPizzas)
+    db.session.commit()
 
-
-class Pizza(db.Model, SerializerMixin):
-    __tablename__ = "pizzas"
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String, nullable=False)
-    ingredients = db.Column(db.String, nullable=False)
-
-    restaurant_pizzas = db.relationship('RestaurantPizza', backref='pizza_instance')
-    restaurants = association_proxy('restaurant_pizzas', 'restaurant', creator=lambda r: RestaurantPizza(restaurant=r))
-
-    serialize_rules = ('-restaurant_pizzas.pizza_instance', '-restaurants.pizzas')
-
-    def __repr__(self):
-        return f"<Pizza {self.name}, {self.ingredients}>"
-
-
-class RestaurantPizza(db.Model, SerializerMixin):
-    __tablename__ = "restaurant_pizzas"
-
-    id = db.Column(db.Integer, primary_key=True)
-    price = db.Column(db.Integer, nullable=False)
-    pizza_id = db.Column(db.Integer, db.ForeignKey('pizzas.id'), nullable=False)
-    restaurant_id = db.Column(db.Integer, db.ForeignKey('restaurants.id'), nullable=False)
-
-    pizza = db.relationship('Pizza', backref='restaurant_pizzas')
-    restaurant = db.relationship('Restaurant', backref='restaurant_pizzas')
-
-    serialize_rules = ('-pizza.restaurant_pizzas', '-restaurant.restaurant_pizzas')
-
-    @validates('price')
-    def validate_price(self, key, value):
-        if not (1 <= value <= 30):
-            raise ValueError("Price must be between 1 and 30")
-        return value
-
-    def __repr__(self):
-        return f"<RestaurantPizza ${self.price}>"
+    print("Seeding done!")
